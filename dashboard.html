@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaTrack — Loudoun River Monitor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #020c10;
+    --surface: #071820;
+    --border: #0e3040;
+    --accent: #00d4ff;
+    --accent2: #00ff9d;
+    --warn: #ff6b35;
+    --text: #cce8f0;
+    --muted: #456070;
+    --card: #050f17;
+  }
+ 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+ 
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+ 
+  /* Animated water background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 80% 40% at 20% 80%, rgba(0,212,255,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 30% at 80% 20%, rgba(0,255,157,0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+ 
+  header {
+    position: relative;
+    z-index: 10;
+    padding: 2rem 2.5rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+ 
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+ 
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+  }
+ 
+  .logo h1 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+ 
+  .logo span {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.1em;
+    display: block;
+    margin-top: -2px;
+  }
+ 
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+ 
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent2);
+    letter-spacing: 0.1em;
+  }
+ 
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+ 
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+ 
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+ 
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+ 
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+  }
+ 
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); color: var(--bg); }
+ 
+  main {
+    position: relative;
+    z-index: 1;
+    padding: 2rem 2.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+ 
+  /* River selector */
+  .river-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+ 
+  .river-bar label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+ 
+  select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    outline: none;
+    min-width: 200px;
+  }
+ 
+  select:focus { border-color: var(--accent); }
+ 
+  /* Add river form */
+  .add-river-form {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+ 
+  .add-river-form.open { display: flex; }
+ 
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+ 
+  .form-group label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+ 
+  .form-group input {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    width: 200px;
+  }
+ 
+  .form-group input:focus { border-color: var(--accent); }
+ 
+  /* Score card — big hero */
+  .hero-score {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    animation: fadeUp 0.5s ease both;
+  }
+ 
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+ 
+  .score-ring {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+  }
+ 
+  .score-ring svg { transform: rotate(-90deg); }
+ 
+  .score-ring-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+ 
+  .score-number {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+  }
+ 
+  .score-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+  }
+ 
+  .hero-info { flex: 1; min-width: 200px; }
+ 
+  .hero-river-name {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 0.25rem;
+  }
+ 
+  .hero-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+ 
+  .hero-summary {
+    font-size: 0.85rem;
+    color: var(--text);
+    line-height: 1.6;
+    max-width: 600px;
+    opacity: 0.8;
+  }
+ 
+  .do-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-top: 0.75rem;
+  }
+ 
+  .do-good { background: rgba(0,255,157,0.1); color: var(--accent2); border: 1px solid rgba(0,255,157,0.3); }
+  .do-adequate { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.3); }
+  .do-moderate { background: rgba(255,200,0,0.1); color: #ffc800; border: 1px solid rgba(255,200,0,0.3); }
+  .do-low { background: rgba(255,107,53,0.1); color: var(--warn); border: 1px solid rgba(255,107,53,0.3); }
+ 
+  /* Stat cards row */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+ 
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    animation: fadeUp 0.5s ease both;
+    transition: border-color 0.2s;
+  }
+ 
+  .stat-card:hover { border-color: var(--accent); }
+ 
+  .stat-card:nth-child(1) { animation-delay: 0.05s; }
+  .stat-card:nth-child(2) { animation-delay: 0.1s; }
+  .stat-card:nth-child(3) { animation-delay: 0.15s; }
+  .stat-card:nth-child(4) { animation-delay: 0.2s; }
+ 
+  .stat-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+ 
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+  }
+ 
+  .stat-unit {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    margin-left: 2px;
+  }
+ 
+  .stat-status {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+  }
+ 
+  .status-ok { background: rgba(0,255,157,0.1); color: var(--accent2); }
+  .status-warn { background: rgba(255,107,53,0.1); color: var(--warn); }
+ 
+  /* Charts grid */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 1.5rem;
+  }
+ 
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    animation: fadeUp 0.5s ease both;
+  }
+ 
+  .chart-card:nth-child(1) { animation-delay: 0.1s; }
+  .chart-card:nth-child(2) { animation-delay: 0.2s; }
+  .chart-card:nth-child(3) { animation-delay: 0.3s; }
+  .chart-card:nth-child(4) { animation-delay: 0.4s; }
+  .chart-card:nth-child(5) { animation-delay: 0.5s; }
+ 
+  .chart-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+ 
+  .chart-wrap { position: relative; height: 180px; }
+ 
+  /* Empty / loading states */
+  .empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+  }
+ 
+  .empty big {
+    display: block;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+ 
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 2rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+  }
+ 
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+ 
+  @keyframes spin { to { transform: rotate(360deg); } }
+ 
+  @media (max-width: 600px) {
+    header, main { padding: 1.25rem; }
+    .charts-grid { grid-template-columns: 1fr; }
+    .hero-score { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+ 
+<header>
+  <div class="logo">
+    <div class="logo-icon">💧</div>
+    <div>
+      <h1>AquaTrack</h1>
+      <span>LOUDOUN COUNTY RIVER MONITOR</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      LIVE
+    </div>
+    <button class="btn" onclick="toggleAddRiver()">+ Add River</button>
+  </div>
+</header>
+ 
+<main>
+ 
+  <!-- Add River Form -->
+  <div class="add-river-form" id="addRiverForm">
+    <div class="form-group">
+      <label>RIVER NAME</label>
+      <input type="text" id="riverName" placeholder="e.g. Goose Creek">
+    </div>
+    <div class="form-group">
+      <label>LATITUDE (optional)</label>
+      <input type="number" id="riverLat" placeholder="39.1121" step="0.0001">
+    </div>
+    <div class="form-group">
+      <label>LONGITUDE (optional)</label>
+      <input type="number" id="riverLon" placeholder="-77.5968" step="0.0001">
+    </div>
+    <button class="btn btn-primary" onclick="addRiver()">Save River</button>
+    <button class="btn" onclick="toggleAddRiver()">Cancel</button>
+  </div>
+ 
+  <!-- River selector -->
+  <div class="river-bar">
+    <label>MONITORING SITE</label>
+    <select id="riverSelect" onchange="loadRiver()">
+      <option value="">— select a river —</option>
+    </select>
+    <button class="btn" onclick="refresh()" title="Refresh">↻ Refresh</button>
+  </div>
+ 
+  <!-- Content -->
+  <div id="content">
+    <div class="empty"><big>🌊</big>Select a river to view its dashboard</div>
+  </div>
+ 
+</main>
+ 
+<script>
+  const API = 'https://aquatracknew-1.onrender.com';
+  let charts = {};
+ 
+  // ── Boot ──────────────────────────────────────────────────────────────────
+  async function boot() {
+    const res = await fetch(`${API}/rivers`);
+    const rivers = await res.json();
+    const sel = document.getElementById('riverSelect');
+    sel.innerHTML = '<option value="">— select a river —</option>';
+    rivers.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = r.name;
+      sel.appendChild(opt);
+    });
+    if (rivers.length === 1) { sel.value = rivers[0].id; loadRiver(); }
+  }
+ 
+  // ── Load river dashboard ──────────────────────────────────────────────────
+  async function loadRiver() {
+    const id = document.getElementById('riverSelect').value;
+    if (!id) return;
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="loading"><div class="spinner"></div> Loading data...</div>';
+ 
+    // destroy old charts
+    Object.values(charts).forEach(c => c.destroy());
+    charts = {};
+ 
+    try {
+      const [latestRes, readingsRes] = await Promise.all([
+        fetch(`${API}/rivers/${id}/latest`),
+        fetch(`${API}/rivers/${id}/readings?limit=50`)
+      ]);
+ 
+      if (!latestRes.ok) {
+        content.innerHTML = '<div class="empty"><big>📡</big>No readings yet for this river.<br>Waiting for ESP32 data...</div>';
+        return;
+      }
+ 
+      const latest = await latestRes.json();
+      const readings = (await readingsRes.json()).reverse(); // oldest first for charts
+ 
+      content.innerHTML = buildHTML(latest, readings);
+      renderCharts(readings);
+    } catch(e) {
+      content.innerHTML = `<div class="empty"><big>⚠️</big>Could not connect to API.<br>${e.message}</div>`;
+    }
+  }
+ 
+  function refresh() { loadRiver(); }
+ 
+  // ── Build HTML ────────────────────────────────────────────────────────────
+  function buildHTML(latest, readings) {
+    const score = latest.water_quality_score ?? '—';
+    const scoreColor = scoreToColor(score);
+    const circumference = 2 * Math.PI * 48;
+    const progress = score !== '—' ? (score / 10) * circumference : 0;
+    const doClass = doToClass(latest.do_estimate);
+    const time = latest.recorded_at ? new Date(latest.recorded_at).toLocaleString() : '—';
+ 
+    return `
+      <div class="hero-score">
+        <div class="score-ring">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="48" fill="none" stroke="#0e3040" stroke-width="8"/>
+            <circle cx="60" cy="60" r="48" fill="none" stroke="${scoreColor}" stroke-width="8"
+              stroke-dasharray="${circumference}"
+              stroke-dashoffset="${circumference - progress}"
+              stroke-linecap="round"/>
+          </svg>
+          <div class="score-ring-text">
+            <div class="score-number" style="color:${scoreColor}">${score}</div>
+            <div class="score-label">/10</div>
+          </div>
+        </div>
+        <div class="hero-info">
+          <div class="hero-river-name">${getRiverName()}</div>
+          <div class="hero-time">Last reading: ${time}</div>
+          ${latest.ai_summary ? `<div class="hero-summary">${latest.ai_summary}</div>` : ''}
+          ${latest.do_estimate ? `<div class="do-badge ${doClass}">DO: ${latest.do_estimate}</div>` : ''}
+        </div>
+      </div>
+ 
+      <div class="stats-grid">
+        ${statCard('TDS', latest.tds_ppm, 'ppm', latest.tds_ppm !== null ? (latest.tds_ppm < 800 ? 'ok' : 'warn') : null)}
+        ${statCard('WATER TEMP', latest.water_temp_c !== null ? (latest.water_temp_c * 9/5 + 32).toFixed(1) : null, '°F', null)}
+        ${statCard('READINGS', readings.length, 'total', null)}
+        ${statCard('WQ SCORE', score, '/10', score !== '—' ? (score >= 7 ? 'ok' : score >= 4 ? null : 'warn') : null)}
+      </div>
+ 
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-title">Water Quality Score Over Time</div>
+          <div class="chart-wrap"><canvas id="chartScore"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">TDS Levels (ppm)</div>
+          <div class="chart-wrap"><canvas id="chartTds"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Water Temperature (°F)</div>
+          <div class="chart-wrap"><canvas id="chartTemp"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Dissolved Oxygen Estimate</div>
+          <div class="chart-wrap"><canvas id="chartDo"></canvas></div>
+        </div>
+      </div>
+    `;
+  }
+ 
+  function statCard(label, value, unit, status) {
+    const statusHtml = status ? `<div class="stat-status status-${status}">${status === 'ok' ? '✓ PASS' : '⚠ FLAG'}</div>` : '';
+    return `
+      <div class="stat-card">
+        <div class="stat-label">${label}</div>
+        <div class="stat-value">${value ?? '—'}<span class="stat-unit">${unit}</span></div>
+        ${statusHtml}
+      </div>`;
+  }
+ 
+  // ── Charts ────────────────────────────────────────────────────────────────
+  function renderCharts(readings) {
+    const labels = readings.map(r => {
+      const d = new Date(r.recorded_at);
+      return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    });
+ 
+    const chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#456070', font: { family: 'Space Mono', size: 9 }, maxTicksLimit: 6 }, grid: { color: '#0e3040' } },
+        y: { ticks: { color: '#456070', font: { family: 'Space Mono', size: 9 } }, grid: { color: '#0e3040' } }
+      }
+    };
+ 
+    // Score chart
+    charts.score = new Chart(document.getElementById('chartScore'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: readings.map(r => r.water_quality_score),
+          borderColor: '#00d4ff',
+          backgroundColor: 'rgba(0,212,255,0.08)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: '#00d4ff'
+        }]
+      },
+      options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 10 } } }
+    });
+ 
+    // TDS chart
+    charts.tds = new Chart(document.getElementById('chartTds'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data: readings.map(r => r.tds_ppm),
+          backgroundColor: readings.map(r => r.tds_ppm > 800 ? 'rgba(255,107,53,0.6)' : 'rgba(0,255,157,0.4)'),
+          borderColor: readings.map(r => r.tds_ppm > 800 ? '#ff6b35' : '#00ff9d'),
+          borderWidth: 1
+        }]
+      },
+      options: chartDefaults
+    });
+ 
+    // Temp chart
+    charts.temp = new Chart(document.getElementById('chartTemp'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: readings.map(r => r.water_temp_c !== null ? (r.water_temp_c * 9/5 + 32).toFixed(1) : null),
+          borderColor: '#ff6b35',
+          backgroundColor: 'rgba(255,107,53,0.08)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: '#ff6b35'
+        }]
+      },
+      options: chartDefaults
+    });
+ 
+    // DO chart (categorical → numeric mapping)
+    const doMap = { 'Low': 1, 'Moderate': 2, 'Adequate': 3, 'Good': 4 };
+    const doColors = { 1: '#ff6b35', 2: '#ffc800', 3: '#00d4ff', 4: '#00ff9d' };
+    charts.do = new Chart(document.getElementById('chartDo'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data: readings.map(r => doMap[r.do_estimate] ?? null),
+          backgroundColor: readings.map(r => (doColors[doMap[r.do_estimate]] ?? '#456070') + '99'),
+          borderColor: readings.map(r => doColors[doMap[r.do_estimate]] ?? '#456070'),
+          borderWidth: 1
+        }]
+      },
+      options: {
+        ...chartDefaults,
+        scales: {
+          ...chartDefaults.scales,
+          y: {
+            ...chartDefaults.scales.y,
+            min: 0, max: 4,
+            ticks: {
+              color: '#456070',
+              font: { family: 'Space Mono', size: 9 },
+              callback: v => ['','Low','Moderate','Adequate','Good'][v] ?? ''
+            }
+          }
+        }
+      }
+    });
+  }
+ 
+  // ── Add river ─────────────────────────────────────────────────────────────
+  async function addRiver() {
+    const name = document.getElementById('riverName').value.trim();
+    if (!name) return alert('Enter a river name');
+    const lat = parseFloat(document.getElementById('riverLat').value) || null;
+    const lon = parseFloat(document.getElementById('riverLon').value) || null;
+    const body = { name };
+    if (lat && lon) { body.latitude = lat; body.longitude = lon; }
+    await fetch(`${API}/rivers`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    toggleAddRiver();
+    await boot();
+  }
+ 
+  function toggleAddRiver() {
+    document.getElementById('addRiverForm').classList.toggle('open');
+  }
+ 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function getRiverName() {
+    const sel = document.getElementById('riverSelect');
+    return sel.options[sel.selectedIndex]?.text ?? 'River';
+  }
+ 
+  function scoreToColor(s) {
+    if (s === '—' || s === null) return '#456070';
+    if (s >= 8) return '#00ff9d';
+    if (s >= 5) return '#00d4ff';
+    if (s >= 3) return '#ffc800';
+    return '#ff6b35';
+  }
+ 
+  function doToClass(do_val) {
+    const m = { 'Good': 'do-good', 'Adequate': 'do-adequate', 'Moderate': 'do-moderate', 'Low': 'do-low' };
+    return m[do_val] ?? 'do-adequate';
+  }
+ 
+  // Auto-refresh every 60 seconds
+  setInterval(() => {
+    if (document.getElementById('riverSelect').value) loadRiver();
+  }, 60000);
+ 
+  boot();
+</script>
+</body>
+</html>
+ 
