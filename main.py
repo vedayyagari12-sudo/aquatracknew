@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
 
@@ -43,3 +44,4 @@ def get_latest(river_id: int):
     match = [r for r in readings if r.get("river_id") == river_id]
     return match[-1] if match else {}
 
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
