@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 
 app = FastAPI()
 
@@ -7,6 +9,14 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 readings = []
 rivers = []
+
+class ReadingCreate(BaseModel):
+    river_id: int = 1
+    tds_ppm: Optional[float] = None
+    water_temp_c: Optional[float] = None
+    do_estimate: Optional[str] = None
+    water_quality_score: Optional[float] = None
+    ai_summary: Optional[str] = None
 
 @app.post("/rivers")
 def create_river(name: str, latitude: float = None, longitude: float = None):
@@ -19,8 +29,9 @@ def list_rivers():
     return rivers
 
 @app.post("/readings")
-def create_reading(data: dict):
-    readings.append(data)
+def create_reading(body: ReadingCreate):
+    reading = body.dict()
+    readings.append(reading)
     return {"status": "ok"}
 
 @app.get("/rivers/{river_id}/readings")
@@ -31,3 +42,4 @@ def get_readings(river_id: int):
 def get_latest(river_id: int):
     match = [r for r in readings if r.get("river_id") == river_id]
     return match[-1] if match else {}
+
